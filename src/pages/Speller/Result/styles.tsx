@@ -9,3 +9,11 @@ export const Container = styled.div`
   justify-content: flex-start;
   gap: 24px;
 `;
+
+export const HighlightedWordContainer = styled.div`
+  margin-top: 16px;
+  padding: 16px;
+  background-color: #f0f0f0;
+  border-radius: 8px;
+  border: 2px solid #007bff;
+`;

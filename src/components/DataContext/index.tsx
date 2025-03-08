@@ -17,11 +17,20 @@ export interface WordEvent {
   timestamp: number;
 }
 
+export interface Prediction {
+  prediction: number;
+  timestamp: number;
+}
+
 interface DataContextType {
   emgData: EMGDataPoint[];
   wordEvents: WordEvent[];
+  predictions: Prediction[];
+  highlightedWord: string;
   addEmgDataPoint: (data: EMGDataPoint) => void;
   addWordEvent: (event: WordEvent) => void;
+  addPrediction: (prediction: Prediction) => void;
+  setHighlightedWord: (word: string) => void;
 }
 
 // create empty context
@@ -31,6 +40,8 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [emgData, setEmgData] = useState<EMGDataPoint[]>([]);
   const [wordEvents, setWordEvents] = useState<WordEvent[]>([]);
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [highlightedWord, setHighlightedWord] = useState<string>('');
 
   const addEmgDataPoint = (data: EMGDataPoint) => {
     // Could also keep only last N data points if you wish
@@ -41,9 +52,22 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setWordEvents((prev) => [...prev, event]);
   }, []);
 
+  const addPrediction = useCallback((prediction: Prediction) => {
+    setPredictions((prev) => [...prev, prediction]);
+  }, []);
+
   return (
     <DataContext.Provider
-      value={{ emgData, wordEvents, addEmgDataPoint, addWordEvent }}
+      value={{
+        emgData,
+        wordEvents,
+        predictions,
+        highlightedWord,
+        addEmgDataPoint,
+        addWordEvent,
+        addPrediction,
+        setHighlightedWord,
+      }}
     >
       {children}
     </DataContext.Provider>

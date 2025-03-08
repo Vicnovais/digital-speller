@@ -1,14 +1,31 @@
-import React, { Fragment, useEffect, useState } from 'react';
+import React, { Fragment, useEffect, useState, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import { colors } from '../../theme/colors';
 import { io } from 'socket.io-client';
 import * as S from './styles';
-import { useDataContext } from '../DataContext';
+import { useDataContext, EMGDataPoint } from '../DataContext';
+import axios from 'axios';
+
+interface ChartDataPoint {
+  value: number;
+  timestamp: number;
+  formattedTime: string;
+}
 
 const EMGChart = () => {
-  const { addEmgDataPoint, emgData, wordEvents } = useDataContext();
-  const [chartData, setChartData] = useState([]);
+  const {
+    addEmgDataPoint,
+    emgData,
+    wordEvents,
+    addPrediction,
+    predictions,
+    highlightedWord,
+  } = useDataContext();
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [maxValue, setMaxValue] = useState(0);
+  const dataPointsRef = useRef<EMGDataPoint[]>([]); // To keep track of data points for prediction
+  const windowSize = 25; // Size of the sliding window
+  const stride = 12; // Stride for the sliding window
 
   useEffect(() => {
     const socket = io(':3001');
@@ -38,17 +55,58 @@ const EMGChart = () => {
         return updatedData.slice(-100);
       });
 
-      addEmgDataPoint({
+      const newDataPoint = {
         value: numericValue,
         timestamp: newTimestamp,
         formattedTime: formattedTimestamp,
-      });
+      };
+
+      addEmgDataPoint(newDataPoint);
+
+      // Add to our reference array for prediction
+      dataPointsRef.current.push(newDataPoint);
+
+      // Check if we have enough data points to make a prediction
+      if (dataPointsRef.current.length >= windowSize) {
+        // Get the last windowSize data points
+        const dataForPrediction = dataPointsRef.current.slice(-windowSize);
+
+        // Send data to prediction endpoint
+        sendDataForPrediction(dataForPrediction);
+
+        // Remove stride number of points from the beginning to implement sliding window
+        if (dataPointsRef.current.length >= windowSize + stride) {
+          dataPointsRef.current = dataPointsRef.current.slice(stride);
+        }
+      }
     });
 
     return () => {
       socket.disconnect();
     };
-  }, []);
+  }, [addEmgDataPoint, windowSize, stride, addPrediction]);
+
+  const sendDataForPrediction = async (dataPoints: EMGDataPoint[]) => {
+    try {
+      // Extract just the values for prediction
+      const values = dataPoints.map((point: EMGDataPoint) => point.value);
+
+      // Send the data to the prediction endpoint
+      const response = await axios.post('http://localhost:5000/predict', {
+        data: values,
+      });
+
+      // Add the prediction to the context
+      if (response.data && response.data.prediction !== undefined) {
+        addPrediction({
+          prediction: response.data.prediction,
+          timestamp: Date.now(),
+        });
+      }
+    } catch (error) {
+      console.error('Error sending data for prediction:', error);
+    }
+  };
 
   useEffect(() => {
     const values = chartData.map((d) => d.value);
@@ -57,10 +115,12 @@ const EMGChart = () => {
   }, [chartData]);
 
   const handleDownloadData = () => {
-    // Prepare a JSON (or CSV) file with EMG + wordEvents
+    // Prepare a JSON (or CSV) file with EMG + wordEvents + predictions + highlightedWord
     const dataToExport = {
       emgData,
       wordEvents,
+      predictions,
+      highlightedWord,
     };
 
     const jsonString = JSON.stringify(dataToExport, null, 2);

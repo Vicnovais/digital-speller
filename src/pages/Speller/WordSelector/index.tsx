@@ -9,7 +9,7 @@ const words = ['Comer', 'Beber', 'Banheiro', 'Dormir', 'Sim', 'Não'];
 const INTER_STIMULUS_INTERVAL = 1000;
 
 const WordSelector = () => {
-  const { addWordEvent } = useDataContext();
+  const { addWordEvent, setHighlightedWord } = useDataContext();
   const [spellerWords, setSpellerWords] = useState(
     words.map((word) => ({ word, active: false })),
   );
@@ -31,6 +31,7 @@ const WordSelector = () => {
               word: word.word,
               timestamp: Date.now(),
             });
+            setHighlightedWord(word.word);
           }
           return {
             ...word,
@@ -41,7 +42,7 @@ const WordSelector = () => {
     }, interStimulus);
 
     return () => clearInterval(interval);
-  }, [spellerWords, interStimulus, addWordEvent]);
+  }, [spellerWords, interStimulus, addWordEvent, setHighlightedWord]);
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newInterval = parseInt(e.target.value, 10);
